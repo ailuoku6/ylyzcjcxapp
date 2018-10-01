@@ -10,9 +10,14 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import org.litepal.LitePal;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -27,16 +32,18 @@ import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private EditText name;
+    private AutoCompleteTextView name;
     private EditText xuehao;
     private ProgressDialog progressDialog;
 
     String result = null;
 
-    private void sendPost(final String uri, final String param, final String charset) {
+    private void sendPost(final String uri, final String param, final String charset,final String real_name,final String xuehao) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -49,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
                     urlcon.setDoOutput(true);
                     urlcon.setUseCaches(false);
                     urlcon.setRequestMethod("POST");
+                    urlcon.setConnectTimeout(5000);
                     urlcon.connect();// 获取连接
                     out = new PrintWriter(urlcon.getOutputStream());
                     out.print(param);
@@ -62,6 +70,14 @@ public class MainActivity extends AppCompatActivity {
                         bs.append(line);
                     }
                     result = bs.toString();
+
+                    List<Student> sts = LitePal.where("name = ?",real_name).find(Student.class);
+
+                    if(sts.isEmpty()){
+                        Student student = new Student(real_name,xuehao);
+                        student.save();
+                    }
+
                     Intent intent = new Intent("com.yz.dzq.ailuoku6.excel");
                     intent.putExtra("data",result);
                     startActivity(intent);
@@ -89,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if ((progressDialog != null)&&(progressDialog.isShowing() == true)){
+                if ((progressDialog != null)&&(progressDialog.isShowing())){
                     progressDialog.dismiss();
                 }
                 Toast.makeText(MainActivity.this,"输入有误,请重新输入",Toast.LENGTH_SHORT).show();
@@ -101,13 +117,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        LitePal.initialize(this);
         setContentView(R.layout.activity_main);
         Button chaxun = (Button) findViewById(R.id.chaxun);
-        name = (EditText) findViewById(R.id.name);
+        TextView questions = (TextView) findViewById(R.id.questions);
+        name = (AutoCompleteTextView) findViewById(R.id.name);
         xuehao = (EditText) findViewById(R.id.xuehao);
 
         name.setText(load("name"));
         xuehao.setText(load("kaohao"));
+        ArrayList<String> St_names = new ArrayList<>();
+
+        List<Student> students = LitePal.findAll(Student.class);
+
+        for (Student student:students){
+            St_names.add(student.getName());
+        }
+
+        ArrayAdapter<String> mAdapter = new ArrayAdapter<String>(this,R.layout.support_simple_spinner_dropdown_item,St_names);
+
+        name.setAdapter(mAdapter);
 
         chaxun.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -129,10 +158,18 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                     String param = "name="+ggname+"&kaohao="+g_xuehao;
-                    sendPost(uri,param, "gb2312");
+                    sendPost(uri,param, "gb2312",g_name,g_xuehao);
                 }else {
                     noNetwork();
                 }
+            }
+        });
+
+        questions.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this,Questions.class);
+                startActivity(intent);
             }
         });
     }
@@ -148,13 +185,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        if (progressDialog != null&&progressDialog.isShowing() == true){
+        if (progressDialog != null&&progressDialog.isShowing()){
             progressDialog.dismiss();
         }
         String g_name = name.getText().toString();
         String g_xuehao = xuehao.getText().toString();
         save("name",g_name);
         save("kaohao",g_xuehao);
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        name.setText(load("name"));
+        xuehao.setText(load("kaohao"));
     }
 
     public void save(String name , String inputText){
@@ -235,4 +279,5 @@ public class MainActivity extends AppCompatActivity {
             }
         }).show();
     }
+
 }
