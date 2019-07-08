@@ -151,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                     String g_name = name.getText().toString();
                     String g_xuehao = xuehao.getText().toString();
                     String ggname = null;
-                    String uri = "http://116.11.184.151:3288/cjcx/list.asp";
+                    String uri = "http://116.11.184.151:3288/cjcx%5E/list.asp";
                     try {
                         ggname = URLEncoder.encode(g_name, "gb2312");
                     } catch (UnsupportedEncodingException e) {
