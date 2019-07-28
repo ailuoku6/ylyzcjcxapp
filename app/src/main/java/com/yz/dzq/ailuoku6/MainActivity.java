@@ -151,14 +151,14 @@ public class MainActivity extends AppCompatActivity {
                     String g_name = name.getText().toString();
                     String g_xuehao = xuehao.getText().toString();
                     String ggname = null;
-                    String uri = "http://116.11.184.151:3288/cjcx%5E/list.asp";
+                    String url = "http://116.11.184.151:3288/cjcx%5E/list.asp";
                     try {
                         ggname = URLEncoder.encode(g_name, "gb2312");
                     } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();
                     }
                     String param = "name="+ggname+"&kaohao="+g_xuehao;
-                    sendPost(uri,param, "gb2312",g_name,g_xuehao);
+                    sendPost(url,param, "gb2312",g_name,g_xuehao);
                 }else {
                     noNetwork();
                 }
