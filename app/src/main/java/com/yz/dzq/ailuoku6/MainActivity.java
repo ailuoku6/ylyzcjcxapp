@@ -1,10 +1,15 @@
 package com.yz.dzq.ailuoku6;
 
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Handler;
+import android.os.Message;
 import android.provider.Settings;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -46,7 +51,12 @@ public class MainActivity extends AppCompatActivity {
     private EditText xuehao;
     private ProgressDialog progressDialog;
 
+    private final int UPDATE_url = 0x123;
+    private final int NOTICE_change = 0x124;
+
     private String url = "http://116.11.184.151:3288/cjcx%5E/list.asp";
+//    private String url = "http://116.11.184.151:3288/cjcx/list.asp";
+
 
     String result = null;
 
@@ -65,9 +75,22 @@ public class MainActivity extends AppCompatActivity {
                     urlcon.setRequestMethod("POST");
                     urlcon.setConnectTimeout(5000);
                     urlcon.connect();// 获取连接
+
+//                    Log.d("spider", "run: "+urlcon.getResponseCode());
+
+
+//                    Log.d("spider", "run: "+urlcon);
                     out = new PrintWriter(urlcon.getOutputStream());
                     out.print(param);
                     out.flush();
+
+                    if (urlcon.getResponseCode()==404){
+                        //查询地址已变更，是否尝试检测新地址
+                        Message message = new Message();
+                        message.what = NOTICE_change;
+                        handler.sendMessage(message);
+                    }
+
                     in = urlcon.getInputStream();
                     BufferedReader buffer = new BufferedReader(new InputStreamReader(
                             in, charset));
@@ -91,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     System.out.println("[请求异常][地址：" + uri + "][参数：" + param + "][错误信息："
                             + e.getMessage() + "]");
+                    Log.d("spider", "run: "+uri+" "+e.toString());
                     showerror();
                 } finally {
                     try {
@@ -143,13 +167,22 @@ public class MainActivity extends AppCompatActivity {
 
                     Elements elements = doc.select("a");
 
+                    String newurl = "";
+
                     for (Element element:elements){
                         String text = element.text();
                         if (text!=null&&text.indexOf("成绩查询")!=-1){
-                            Log.d("spider", "run: "+element.attr("href"));
+                            newurl = element.attr("href");
+                            Log.d("spider", "run: "+newurl);
                             break;
                         }
                     }
+
+                    Message message = new Message();
+                    message.what = UPDATE_url;
+                    message.obj = newurl;
+
+                    handler.sendMessage(message);
 
                 }catch (Exception e){
                     Log.d("spider", "run: "+ e.toString());
@@ -170,6 +203,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            if (progressDialog!=null&&progressDialog.isShowing()){
+                progressDialog.dismiss();
+            }
+            switch (msg.what){
+                case UPDATE_url:
+                    updateUrl((String) msg.obj);
+                    break;
+                case NOTICE_change:
+                    noticeChange();
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
 
 
     @Override
@@ -311,6 +365,50 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return content.toString();
+    }
+
+    public void updateUrl(String newurl){
+        if (newurl!=null&&!newurl.isEmpty()){
+            if (newurl.charAt(0)=='/'){
+                newurl = newurl.substring(1);
+            }
+            url = Api.BaseUrl+newurl;
+            Toast.makeText(MainActivity.this,"检测成功!新地址为:"+url+"已自动切换",Toast.LENGTH_SHORT).show();
+            save("url",url);
+//            String uri = "";
+//            try{
+//                uri = URLEncoder.encode(Api.BaseUrl+newurl,"utf-8");
+//            }catch (Exception e){
+//                e.printStackTrace();
+//            }
+//            if (uri!=null&&!uri.isEmpty()){
+//                url = uri;
+//                Toast.makeText(MainActivity.this,"检测成功!新地址为:"+url+"已自动切换",Toast.LENGTH_SHORT).show();
+//                save("url",url);
+//            }
+
+        }
+    }
+
+    public void noticeChange(){
+        //弹出对话框，是否检测新链接
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("查询地址已变更，是否尝试检测新地址?");
+        builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                progressDialog.show();
+                loadUrl();
+            }
+        });
+        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+
+            }
+        });
+        builder.setCancelable(true);
+        builder.show();
     }
 
     // check all network connect, WIFI or mobile
