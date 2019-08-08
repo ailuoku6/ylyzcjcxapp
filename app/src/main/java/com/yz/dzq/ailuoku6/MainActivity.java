@@ -9,6 +9,7 @@ import android.provider.Settings;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -17,6 +18,10 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.litepal.LitePal;
 
 import java.io.BufferedReader;
@@ -40,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private AutoCompleteTextView name;
     private EditText xuehao;
     private ProgressDialog progressDialog;
+
+    private String url = "http://116.11.184.151:3288/cjcx%5E/list.asp";
 
     String result = null;
 
@@ -100,6 +107,57 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    private void loadUrl(){//地址改变时检测新地址
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                PrintWriter out = null;
+                InputStream in = null;
+
+                try{
+                    URL url = new URL(Api.BaseUrl);
+                    HttpURLConnection urlcon = (HttpURLConnection) url.openConnection();
+
+                    urlcon.setDoInput(true);
+                    urlcon.setDoOutput(true);
+                    urlcon.setUseCaches(false);
+                    urlcon.setRequestMethod("GET");
+                    urlcon.setConnectTimeout(5000);
+
+                    urlcon.connect();// 获取连接
+                    out = new PrintWriter(urlcon.getOutputStream());
+//                    out.print(param);
+                    out.flush();
+                    in = urlcon.getInputStream();
+                    BufferedReader buffer = new BufferedReader(new InputStreamReader(
+                            in, "gb2312"));
+                    StringBuilder bs = new StringBuilder();
+                    String line = null;
+                    while ((line = buffer.readLine()) != null) {
+                        bs.append(line);
+                    }
+                    String spider = bs.toString();
+                    Log.d("spider", "run: "+spider);
+
+                    Document doc = Jsoup.parse(spider);
+
+                    Elements elements = doc.select("a");
+
+                    for (Element element:elements){
+                        String text = element.text();
+                        if (text!=null&&text.indexOf("成绩查询")!=-1){
+                            Log.d("spider", "run: "+element.attr("href"));
+                            break;
+                        }
+                    }
+
+                }catch (Exception e){
+                    Log.d("spider", "run: "+ e.toString());
+                }
+            }
+        }).start();
+    }
+
     private void showerror(){
 
         runOnUiThread(new Runnable() {
@@ -126,6 +184,15 @@ public class MainActivity extends AppCompatActivity {
 
         name.setText(load("name"));
         xuehao.setText(load("kaohao"));
+
+//        loadUrl();
+
+        String readUrl = load("url");
+
+        if (readUrl!=null&&!readUrl.isEmpty()){
+            url = readUrl;
+        }
+
         ArrayList<String> St_names = new ArrayList<>();
 
         List<Student> students = LitePal.findAll(Student.class);
@@ -151,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
                     String g_name = name.getText().toString();
                     String g_xuehao = xuehao.getText().toString();
                     String ggname = null;
-                    String url = "http://116.11.184.151:3288/cjcx%5E/list.asp";
+//                    String url = "";
                     try {
                         ggname = URLEncoder.encode(g_name, "gb2312");
                     } catch (UnsupportedEncodingException e) {
